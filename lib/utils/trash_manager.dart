@@ -1,54 +1,39 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 
+
 class TrashManager {
-  /// 여러 아이템을 휴지통에서 복원
-  static Future<void> restoreItems({
-    required BuildContext context,
-    required List<String> docIds,
-    required String trashCollection, // 예: 'trash'
-    required String originalCollection, // 예: 'verbs' or 'flashcard_sets'
-  }) async {
-    try {
-      WriteBatch batch = FirebaseFirestore.instance.batch();
-      for (var docId in docIds) {
-        final trashDocRef = FirebaseFirestore.instance
-            .collection(trashCollection)
-            .doc(docId);
-
-        final trashDocSnapshot = await trashDocRef.get();
-        if (!trashDocSnapshot.exists) continue;
-        final trashData = trashDocSnapshot.data() as Map<String, dynamic>;
-
-        final originalId = trashData["originalId"];
-        final originalRef = FirebaseFirestore.instance
-            .collection(originalCollection)
-            .doc(originalId);
-
-        final data = trashData["data"];
-        batch.set(originalRef, data);
-        batch.delete(trashDocRef);
-      }
-
-      await batch.commit();
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("복원되었습니다.")),
-      );
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("복원 실패: $e")),
-      );
-    }
-  }
-
-  /// 여러 아이템을 휴지통으로 이동
+  /// 여러 아이템을 휴지통으로 이동하는 함수
+  /// [showConfirmation]을 true로 하면 함수 내부에서 확인 다이얼로그를 표시합니다.
   static Future<void> moveItemsToTrash({
     required BuildContext context,
     required List<String> docIds,
     required String originalCollection,
     required String trashCollection,
     required String itemType,
+    bool showConfirmation = true,
   }) async {
+    if (showConfirmation) {
+      final confirm = await showDialog<bool>(
+        context: context,
+        builder: (context) => AlertDialog(
+          title: const Text("휴지통으로 이동 확인"),
+          content: const Text("선택한 항목을 휴지통으로 보내시겠습니까?"),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context, false),
+              child: const Text("취소"),
+            ),
+            ElevatedButton(
+              onPressed: () => Navigator.pop(context, true),
+              child: const Text("확인"),
+            ),
+          ],
+        ),
+      );
+      if (confirm != true) return;
+    }
+
     try {
       WriteBatch batch = FirebaseFirestore.instance.batch();
       for (var docId in docIds) {
